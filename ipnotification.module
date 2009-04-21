@@ -1,0 +1,142 @@
+<?php
+
+
+// $Id$
+
+/**
+ * @file
+ * Zur Speicherung von IP und Email-Adressen und zur Versendung einer Systemmail,
+ * wenn über diese ein Login, Kommentar oder ein Artikel getaetigt wurde.
+ * 
+ * @author
+ * Christoph von Bargen <christoph.vonbargen@zeit.de>
+ * Stefan Auditor <stefan.auditor@erdfisch.de>
+ * 
+ * TODO: Translate to english
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function ipnotification_perm() {
+  return array('administer ipnotification');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function ipnotification_menu($may_cache) {
+  $items = array();
+
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'admin/settings/ipnotification',
+      'title' => t('Ipnotification'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('ipnotification_form'),
+      'type' => MENU_NORMAL_ITEM,
+      'access' => user_access('administer ipnotification'),
+      'description' => t('Change notification settings.'),
+    );
+  }
+  return $items;
+}
+
+/**
+ * Administrative settings form.
+ */
+function ipnotification_form() {
+  $form['ips'] = array(
+    '#title' => t('IPs und Emailadressen'),
+    '#type'  => 'textarea',
+    '#default_value'  => variable_get('ips', ''),
+    '#description' => t('A comma sepereated list of e-mails or IPs, e.g. <em>mail@example.com,192.168.0.1</em>'),
+  );
+  $form['email_notification'] = array(
+    '#title'  => t('Empfänger der Mitteilungen'),
+    '#type'   => 'textfield',
+    '#name'   => 'email_notification',
+    '#default_value'  => variable_get('email_notification', ''),
+    '#description' => t('A comma sepereated list of e-mails, e.g. <em>mail@example.com,mail@example.org</em>'),
+  );
+
+  return system_settings_form($form);
+}
+
+function ip_checker($current_ip, $id, $element) {
+  
+  $ips   = variable_get('ips', '');
+  
+  $check = ereg($current_ip, $ips);
+  
+  $svr = "http://" .$_SERVER['SERVER_NAME'];
+  
+  if ($check >= 1) {
+    $body = t('Es wurde ein neuer !element von der IP !current_ip eingetragen.'. $url, array('!element' => $element, '!current_ip' => check_plain($current_ip))) ."\n";
+    $body .= t('Zum !url', array('!url' => l(t('Eintrag'), $svr. '/node/'. $id)));
+
+    $mailkey = 'ipnotification';
+    $to = variable_get('email_notification', '');
+    $subject = t('Neuer Eintrag');
+    $from = 'Community';
+    $header = array('Content-Type' => 'text/html; charset=UTF-8; format=flowed');
+    drupal_mail($mailkey, $to, $subject, $body, $from, $header);
+  }
+  return $check;
+}
+
+function email_checker($element) {
+  global $user;
+
+  $ips    = variable_get('ips', '');
+  
+  $emailsrv   = explode("@", $user->mail);
+  $emailsrv   = "%@" . $emailsrv[1];
+  $check      = ereg($emailsrv, $ips);
+  
+  $check      = ereg($user->mail, $ips) + $check;
+  
+  $svr = "http://" .$_SERVER['SERVER_NAME'];
+  
+  if ($check >= 1) {
+    $body = t('Der !element !username mit der E-mail <b>!mail</b> hat sich angemeldet.<br><br>', array('!element' => $element, '!username' => $user->name, '!mail' => $user->mail)) ."\n";
+    $body .= t('Zum !url', array('!url' => l(t('Profil'), $svr. '/user/'. $user->uid)));
+    
+    $mailkey = 'ipnotification';
+    $to = variable_get('email_notification', '');
+    $subject = t('Neuer Eintrag');
+    $from = 'Community';
+    $header = array('Content-Type' => 'text/html; charset=UTF-8; format=flowed');
+    drupal_mail($mailkey, $to, $subject, $body, $from, $header);
+  }
+  return $check;
+}
+
+/**
+ * Implementation of hook_comment().
+ */
+function ipnotification_comment(&$a1, $op) {
+  if ($op == "insert") {
+    $id = $a1['nid'];
+    ip_checker(check_plain($_SERVER['REMOTE_ADDR']), $id, t("Kommentar"));
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function ipnotification_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if ($op == "insert") {
+    $id = $node->nid;
+    ip_checker($_SERVER['REMOTE_ADDR'], $id, t("Artikel"));
+  }
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function ipnotification_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == "login") {
+    email_checker(t('Benutzer'));
+  }
+}
