@@ -1,6 +1,4 @@
 <?php
-
-
 // $Id$
 
 /**
@@ -27,7 +25,6 @@ function ipnotification_perm() {
  */
 function ipnotification_menu($may_cache) {
   $items = array();
-
   if ($may_cache) {
     $items[] = array(
       'path' => 'admin/settings/ipnotification',
@@ -43,24 +40,32 @@ function ipnotification_menu($may_cache) {
 }
 
 /**
- * Administrative settings form.
+ * Implementation of hook_comment().
  */
-function ipnotification_form() {
-  $form['ips'] = array(
-    '#title' => t('IPs und Emailadressen'),
-    '#type'  => 'textarea',
-    '#default_value'  => variable_get('ips', ''),
-    '#description' => t('A comma sepereated list of e-mails or IPs, e.g. <em>mail@example.com,192.168.0.1</em>'),
-  );
-  $form['email_notification'] = array(
-    '#title'  => t('Empfänger der Mitteilungen'),
-    '#type'   => 'textfield',
-    '#name'   => 'email_notification',
-    '#default_value'  => variable_get('email_notification', ''),
-    '#description' => t('A comma sepereated list of e-mails, e.g. <em>mail@example.com,mail@example.org</em>'),
-  );
+function ipnotification_comment(&$a1, $op) {
+  if ($op == "insert") {
+    $id = $a1['nid'];
+    ip_checker(check_plain($_SERVER['REMOTE_ADDR']), $id, t("Kommentar"));
+  }
+}
 
-  return system_settings_form($form);
+/**
+ * Implementation of hook_nodeapi().
+ */
+function ipnotification_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if ($op == "insert") {
+    $id = $node->nid;
+    ip_checker($_SERVER['REMOTE_ADDR'], $id, t("Artikel"));
+  }
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function ipnotification_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == "login") {
+    email_checker(t('Benutzer'));
+  }
 }
 
 function ip_checker($current_ip, $id, $element) {
@@ -113,30 +118,22 @@ function email_checker($element) {
 }
 
 /**
- * Implementation of hook_comment().
+ * Administrative settings form.
  */
-function ipnotification_comment(&$a1, $op) {
-  if ($op == "insert") {
-    $id = $a1['nid'];
-    ip_checker(check_plain($_SERVER['REMOTE_ADDR']), $id, t("Kommentar"));
-  }
-}
+function ipnotification_form() {
+  $form['ips'] = array(
+    '#title' => t('IPs and e-mail adresses'),
+    '#type'  => 'textarea',
+    '#default_value'  => variable_get('ips', ''),
+    '#description' => t('A comma sepereated list of e-mails or IPs, e.g. <em>mail@example.com, 192.168.0.1</em>'),
+  );
+  $form['email_notification'] = array(
+    '#title'  => t('Notification recipient'),
+    '#type'   => 'textfield',
+    '#name'   => 'email_notification',
+    '#default_value'  => variable_get('email_notification', ''),
+    '#description' => t('A comma sepereated list of e-mails, e.g. <em>mail1@example.com, mail2@example.org</em>'),
+  );
 
-/**
- * Implementation of hook_nodeapi().
- */
-function ipnotification_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
-  if ($op == "insert") {
-    $id = $node->nid;
-    ip_checker($_SERVER['REMOTE_ADDR'], $id, t("Artikel"));
-  }
-}
-
-/**
- * Implementation of hook_user().
- */
-function ipnotification_user($op, &$edit, &$account, $category = NULL) {
-  if ($op == "login") {
-    email_checker(t('Benutzer'));
-  }
+  return system_settings_form($form);
 }
