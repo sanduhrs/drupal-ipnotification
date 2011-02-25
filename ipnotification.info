@@ -1,3 +1,2 @@
-; $Id$
 name = Ip notification 
 description = Notify administrators when users with specified IPs appear.
