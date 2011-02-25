@@ -1,3 +1,2 @@
-; $Id$
 name = Ip notification 
 description = Eingabe-Modul für IPs die eine Email-Benachrichtigung auslösen sollen.
